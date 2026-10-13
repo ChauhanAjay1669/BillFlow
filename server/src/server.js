@@ -40,28 +40,32 @@ app.use(morgan('dev'));
 // Static files for uploaded images / signatures / templates
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/business', businessRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/templates', templateRoutes);
-app.use('/api/excel', excelRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/seed', seedRoutes);
-
-// Health Check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    product: 'BillFlow',
-    timestamp: new Date().toISOString(),
+// API Routes - Mount on both /api and root prefixes for Vercel/proxy compatibility
+const mountRoutes = (prefix = '/api') => {
+  const p = (route) => `${prefix}${route}`;
+  app.use(p('/auth'), authRoutes);
+  app.use(p('/business'), businessRoutes);
+  app.use(p('/customers'), customerRoutes);
+  app.use(p('/products'), productRoutes);
+  app.use(p('/invoices'), invoiceRoutes);
+  app.use(p('/payments'), paymentRoutes);
+  app.use(p('/templates'), templateRoutes);
+  app.use(p('/excel'), excelRoutes);
+  app.use(p('/reports'), reportRoutes);
+  app.use(p('/notifications'), notificationRoutes);
+  app.use(p('/search'), searchRoutes);
+  app.use(p('/seed'), seedRoutes);
+  app.get(p('/health'), (req, res) => {
+    res.json({
+      status: 'healthy',
+      product: 'BillFlow',
+      timestamp: new Date().toISOString(),
+    });
   });
-});
+};
+
+mountRoutes('/api');
+mountRoutes('');
 
 // Central Error Handler
 app.use(errorHandler);

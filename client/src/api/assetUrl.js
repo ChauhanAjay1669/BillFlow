@@ -11,7 +11,8 @@
  * - Empty/falsy values — returned as empty string
  * - Relative paths like /uploads/... — prefixed with API base URL
  */
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const rawApiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+const API_BASE = rawApiUrl.replace(/\/api\/?$/, '');
 
 export const resolveAssetUrl = (url) => {
   if (!url || typeof url !== 'string') return '';

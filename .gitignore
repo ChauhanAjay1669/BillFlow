@@ -44,4 +44,6 @@ Thumbs.db
 .agents/
 .gemini/
 .gsd/
+powershell.cmd
+**/powershell.cmd
 

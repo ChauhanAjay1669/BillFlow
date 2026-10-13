@@ -1,0 +1,412 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <title>Invoice - INV-DEMO-010</title>
+      <style>
+        /* Embed fonts using @import — Puppeteer can load these over the network */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&family=Poppins:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap');
+
+        @page {
+          size: A4 portrait;
+          margin: 14mm 12mm 14mm 12mm;
+        }
+        * { box-sizing: border-box; }
+        body {
+          font-family: 'Inter', 'Inter', 'Segoe UI', system-ui, sans-serif;
+          color: #0F172A;
+          background: #ffffff;
+          margin: 0;
+          padding: 0;
+          font-size: 12px;
+          line-height: 1.4;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .header-container {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding-bottom: 20px;
+          border-bottom: 2px solid #2563EB;
+          margin-bottom: 20px;
+        }
+        .logo-box {
+          max-width: 180px;
+          max-height: 70px;
+          object-fit: contain;
+          margin-bottom: 8px;
+        }
+        .business-title {
+          font-size: 22px;
+          font-weight: 700;
+          color: #2563EB;
+          letter-spacing: -0.5px;
+          margin-bottom: 4px;
+        }
+        .meta-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #0F172A;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          text-align: right;
+          margin-bottom: 6px;
+        }
+        .badge-status {
+          display: inline-block;
+          padding: 3px 10px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 4px;
+        }
+        .badge-paid { background: #DCFCE7; color: #166534; }
+        .badge-pending { background: #FEF3C7; color: #92400E; }
+        .badge-overdue { background: #FEE2E2; color: #991B1B; }
+        .badge-partially-paid { background: #E0E7FF; color: #3730A3; }
+        .badge-draft { background: #F1F5F9; color: #475569; }
+
+        .details-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+          margin-bottom: 24px;
+          background: #F8FAFC;
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid #E2E8F0;
+        }
+        .section-label {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #64748B;
+          letter-spacing: 0.5px;
+          margin-bottom: 6px;
+        }
+        .customer-name {
+          font-size: 15px;
+          font-weight: 700;
+          color: #0F172A;
+          margin-bottom: 4px;
+        }
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 2px 0;
+        }
+        .info-label { color: #64748B; }
+        .info-val { font-weight: 600; color: #0F172A; }
+
+        /* Items Table */
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 24px;
+        }
+        .items-table th {
+          background-color: #2563EB;
+          color: #ffffff;
+          padding: 8px 10px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          text-align: left;
+        }
+        .items-table td {
+          padding: 10px 10px;
+          border-bottom: 1px solid #E2E8F0;
+          vertical-align: top;
+        }
+        .item-row:nth-child(even) {
+          background-color: #F8FAFC;
+        }
+        .item-name { font-weight: 600; color: #0F172A; }
+        .item-desc { font-size: 11px; color: #64748B; margin-top: 2px; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-semibold { font-weight: 600; }
+
+        /* Bottom Section */
+        .bottom-section {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr;
+          gap: 24px;
+          margin-bottom: 24px;
+        }
+        .payment-box {
+          border: 1px solid #E2E8F0;
+          border-radius: 8px;
+          padding: 14px;
+          background: #FFFFFF;
+        }
+        .qr-section {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px dashed #CBD5E1;
+        }
+        .qr-image {
+          width: 90px;
+          height: 90px;
+          border-radius: 6px;
+          border: 1px solid #E2E8F0;
+        }
+        .totals-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .totals-table td {
+          padding: 5px 8px;
+          text-align: right;
+        }
+        .totals-table .label {
+          color: #64748B;
+          text-align: left;
+        }
+        .totals-table .val {
+          font-weight: 600;
+          color: #0F172A;
+        }
+        .grand-total-row {
+          background-color: #2563EB15;
+          border-top: 2px solid #2563EB;
+          border-bottom: 2px solid #2563EB;
+        }
+        .grand-total-row td {
+          padding: 8px 8px;
+          font-size: 15px;
+          font-weight: 800;
+          color: #2563EB;
+        }
+
+        /* Signatures & Footer */
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 1.5fr 1fr;
+          gap: 24px;
+          align-items: flex-end;
+          padding-top: 16px;
+          border-top: 1px solid #E2E8F0;
+        }
+        .terms-box {
+          font-size: 10px;
+          color: #64748B;
+          white-space: pre-line;
+        }
+        .signature-box {
+          text-align: right;
+        }
+        .signature-img {
+          max-height: 50px;
+          max-width: 140px;
+          object-fit: contain;
+          margin-bottom: 4px;
+        }
+        .signatory-label {
+          font-size: 11px;
+          font-weight: 600;
+          color: #0F172A;
+          border-top: 1px solid #94A3B8;
+          padding-top: 4px;
+          display: inline-block;
+          min-width: 140px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header-container">
+        <div>
+          
+          <div class="business-title">Apex Technologies Pvt Ltd</div>
+          <div style="color: #64748B; font-size: 11px;">
+            <div>Tower B, 4th Floor, Godrej Cyber City, Pune - 411028</div>
+            <div>Phone: +91 98765 43210 | Email: billing@apextech.in</div>
+            <div><b>GSTIN:</b> 27AAACA9999P1Z5 | <b>PAN:</b> AAACA9999P</div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div class="meta-title">TAX INVOICE</div>
+          <div style="font-size: 14px; font-weight: 700; color: #2563EB;"># INV-DEMO-010</div>
+          <div style="margin-top: 4px;">
+            <span class="badge-status badge-partially-paid">
+              Partially Paid
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="details-grid">
+        <div>
+          <div class="section-label">Bill To</div>
+          <div class="customer-name">Karthik Raja</div>
+          <div style="font-weight: 600; color: #475569;">Kavery Digital Networks</div>
+          <div style="color: #64748B; font-size: 11px; margin-top: 2px;">
+            <div>OMR IT Expressway, Chennai</div>
+            <div>Phone: 9444022331</div>
+            <div>Email: karthik@kaverynetworks.com</div>
+            <div><b>GSTIN:</b> 33AABCK7766D1ZX</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">Invoice Details</div>
+          <div class="info-row"><span class="info-label">Invoice Date:</span><span class="info-val">05 Oct 2026</span></div>
+          <div class="info-row"><span class="info-label">Due Date:</span><span class="info-val">20 Oct 2026</span></div>
+          <div class="info-row"><span class="info-label">Place of Supply:</span><span class="info-val">Tamil Nadu</span></div>
+          <div class="info-row"><span class="info-label">Tax Type:</span><span class="info-val">Inter-State (IGST)</span></div>
+        </div>
+      </div>
+
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th class="text-center" style="width: 35px;">#</th>
+            <th>Item / Description</th>
+            <th class="text-center" style="width: 75px;">HSN/SAC</th>
+            <th class="text-right" style="width: 70px;">Qty</th>
+            <th class="text-right" style="width: 90px;">Rate</th>
+            <th class="text-right" style="width: 60px;">Disc</th>
+            <th class="text-right" style="width: 60px;">GST</th>
+            <th class="text-right" style="width: 100px;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+    <tr class="item-row">
+      <td class="text-center">1</td>
+      <td>
+        <div class="item-name">Cisco Gigabit 24-Port Managed Switch</div>
+        
+      </td>
+      <td class="text-center">851762</td>
+      <td class="text-right">1 PCS</td>
+      <td class="text-right">₹36,500.00</td>
+      <td class="text-right">-</td>
+      <td class="text-right">18%</td>
+      <td class="text-right font-semibold">₹43,070.00</td>
+    </tr>
+  
+    <tr class="item-row">
+      <td class="text-center">2</td>
+      <td>
+        <div class="item-name">Jabra Evolve2 65 Wireless Headset</div>
+        
+      </td>
+      <td class="text-center">851830</td>
+      <td class="text-right">2 PCS</td>
+      <td class="text-right">₹18,990.00</td>
+      <td class="text-right">-</td>
+      <td class="text-right">18%</td>
+      <td class="text-right font-semibold">₹44,816.40</td>
+    </tr>
+  
+    <tr class="item-row">
+      <td class="text-center">3</td>
+      <td>
+        <div class="item-name">Logitech MX Master 3S Wireless Mouse</div>
+        
+      </td>
+      <td class="text-center">847160</td>
+      <td class="text-right">2 PCS</td>
+      <td class="text-right">₹9,495.00</td>
+      <td class="text-right">-</td>
+      <td class="text-right">18%</td>
+      <td class="text-right font-semibold">₹22,408.20</td>
+    </tr>
+  
+        </tbody>
+      </table>
+
+      <div class="bottom-section">
+        <div>
+          <div class="payment-box">
+            <div class="section-label">Bank & Payment Information</div>
+            
+              <div style="font-size: 11px; color: #334155; line-height: 1.5;">
+                <div><b>Bank Name:</b> HDFC Bank Ltd</div>
+                <div><b>A/C No:</b> 50200012345678</div>
+                <div><b>IFSC Code:</b> HDFC0000123</div>
+                <div><b>Branch:</b> Kalyani Nagar Branch</div>
+                <div><b>UPI ID:</b> apextech@hdfcbank</div>
+              </div>
+            
+
+            
+              <div class="qr-section">
+                <img src="data:image/png;base64,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" class="qr-image" alt="UPI QR" />
+                <div style="font-size: 10px; color: #475569;">
+                  <div style="font-weight: 700; color: #0F172A; margin-bottom: 2px;">Scan & Pay via UPI</div>
+                  <div>GPay, PhonePe, Paytm, BHIM</div>
+                  <div style="color: #2563EB; font-weight: 600; margin-top: 4px;">Due: ₹66,477.00</div>
+                </div>
+              </div>
+            
+          </div>
+
+          
+        </div>
+
+        <div>
+          <table class="totals-table">
+            <tr>
+              <td class="label">Taxable Subtotal</td>
+              <td class="val">₹93,470.00</td>
+            </tr>
+            
+            
+              <tr>
+                <td class="label">Integrated GST (IGST)</td>
+                <td class="val">₹16,824.60</td>
+              </tr>
+            
+            
+              <tr>
+                <td class="label">Shipping / Delivery</td>
+                <td class="val">₹500.00</td>
+              </tr>
+            
+            
+              <tr>
+                <td class="label">Round Off</td>
+                <td class="val">+0.4</td>
+              </tr>
+            
+            <tr class="grand-total-row">
+              <td class="label" style="color: #2563EB; font-weight: 700;">Grand Total</td>
+              <td class="val" style="color: #2563EB;">₹1,10,795.00</td>
+            </tr>
+            <tr>
+              <td class="label">Amount Paid</td>
+              <td class="val" style="color: #16A34A;">₹44,318.00</td>
+            </tr>
+            <tr style="border-top: 1px solid #E2E8F0;">
+              <td class="label" style="font-weight: 700; color: #0F172A;">Balance Due</td>
+              <td class="val" style="font-weight: 800; color: #DC2626; font-size: 13px;">₹66,477.00</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer-grid">
+        <div class="terms-box">
+          <div style="font-weight: 700; color: #475569; margin-bottom: 3px;">Terms & Conditions</div>
+          1. Goods once sold will not be taken back or exchanged.
+2. Invoice payment is due within the stipulated period.
+3. Subject to local jurisdiction only.
+        </div>
+        <div class="signature-box">
+          <div style="height: 40px;"></div>
+          <div class="signatory-label">For Apex Technologies Pvt Ltd</div>
+        </div>
+      </div>
+    </body>
+    </html>
+  

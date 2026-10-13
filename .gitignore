@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Production build outputs
+dist/
+client/dist/
+dist-ssr/
+build/
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env*.local
+*.env
+server/.env
+client/.env
+
+# Uploads & User Generated Files
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Logs & Debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Agent scratch & internal state
+.agent/
+.agents/
+.gemini/
+.gsd/
+

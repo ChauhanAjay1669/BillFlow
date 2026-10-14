@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
   "services": {
     "client": {
       "root": "client/",
@@ -19,9 +18,22 @@
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/assets/:path*",
       "destination": {
         "service": "client"
+      }
+    },
+    {
+      "source": "/(.*\\.[a-zA-Z0-9]+)",
+      "destination": {
+        "service": "client"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "client",
+        "path": "/index.html"
       }
     }
   ]

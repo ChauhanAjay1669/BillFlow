@@ -14,6 +14,7 @@ const staticRoutes = [
   'onboarding',
   'dashboard',
   'invoices',
+  'invoices/new',
   'customers',
   'products',
   'excel-import',
@@ -21,7 +22,12 @@ const staticRoutes = [
   'templates',
   'payments',
   'reports',
-  'settings'
+  'settings',
+  'settings/company',
+  'settings/invoice',
+  'settings/taxes',
+  'settings/bank',
+  'settings/security'
 ]
 
 const spaFallbackPlugin = () => ({
@@ -36,17 +42,33 @@ const spaFallbackPlugin = () => ({
     // 1. Generate 404.html for universal SPA fallback
     fs.writeFileSync(path.join(distPath, '404.html'), indexHtml)
 
-    // 2. Generate static route HTML files and directories (login.html, login/index.html, etc.)
+    // 2. Generate dist/vercel.json for Vercel SPA rewrites
+    fs.writeFileSync(
+      path.join(distPath, 'vercel.json'),
+      JSON.stringify(
+        {
+          cleanUrls: false,
+          rewrites: [{ source: '/(.*)', destination: '/index.html' }]
+        },
+        null,
+        2
+      )
+    )
+
+    // 3. Generate static route HTML files and directories
     staticRoutes.forEach((route) => {
-      fs.writeFileSync(path.join(distPath, `${route}.html`), indexHtml)
       const routeDir = path.join(distPath, route)
       if (!fs.existsSync(routeDir)) {
         fs.mkdirSync(routeDir, { recursive: true })
       }
       fs.writeFileSync(path.join(routeDir, 'index.html'), indexHtml)
+
+      if (!route.includes('/')) {
+        fs.writeFileSync(path.join(distPath, `${route}.html`), indexHtml)
+      }
     })
 
-    console.log(`[spa-fallback] Generated 404.html and ${staticRoutes.length} static route entrypoints`)
+    console.log(`[spa-fallback] Generated 404.html, vercel.json, and ${staticRoutes.length} static route entrypoints`)
   }
 })
 

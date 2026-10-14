@@ -391,28 +391,65 @@ export const generatePdfKitInvoice = async (invoice, business, template = {}) =>
       }
 
       // Signatory Section (bottom right)
+      const signBoxWidth = 170;
+      const signBoxX = rightColX + rightColWidth - signBoxWidth;
+      const signSectionY = Math.max(totY + 16, bottomSectionY + 80);
+
       const signBuffer = getImageBuffer(business.signature);
-      const signY = Math.max(totY + 12, bottomSectionY + 95);
+      const maxImgH = 46;
+      const maxImgW = 140;
 
       if (signBuffer) {
         try {
-          doc.image(signBuffer, rightColX + rightColWidth - 90, signY - 25, { fit: [85, 30] });
+          const img = doc.openImage(signBuffer);
+          let w = maxImgW;
+          let h = w * (img.height / img.width);
+          if (h > maxImgH) {
+            h = maxImgH;
+            w = h * (img.width / img.height);
+          }
+          // Dead-center horizontally and vertically within the signature area
+          const imgX = signBoxX + (signBoxWidth - w) / 2;
+          const imgY = signSectionY + (maxImgH - h) / 2;
+          doc.image(img, imgX, imgY, { width: w, height: h });
         } catch (e) {
           console.warn('[PDFKit] Signature render skipped:', e.message);
         }
       }
 
+      // Clean horizontal signature line
+      const lineY = signSectionY + maxImgH + 4;
+      doc
+        .strokeColor('#94A3B8')
+        .lineWidth(0.75)
+        .moveTo(signBoxX + 10, lineY)
+        .lineTo(signBoxX + signBoxWidth - 10, lineY)
+        .stroke();
+
+      // "For [Company Name]"
+      const rawBizName = (business.businessName || '').trim();
+      const companyLabel = rawBizName
+        ? (rawBizName.toLowerCase().startsWith('for ') ? rawBizName : `For ${rawBizName}`)
+        : 'Authorized Signatory';
+
       doc
         .font('Helvetica-Bold')
-        .fontSize(8)
+        .fontSize(8.5)
         .fillColor(textColor)
-        .text('Authorized Signatory', rightColX, signY + 8, { width: rightColWidth, align: 'right' });
+        .text(companyLabel, signBoxX, lineY + 5, {
+          width: signBoxWidth,
+          align: 'center',
+        });
 
+      // "Authorized Signatory"
       doc
         .font('Helvetica')
         .fontSize(7.5)
         .fillColor(mutedColor)
-        .text(business.businessName || '', rightColX, signY + 18, { width: rightColWidth, align: 'right' });
+        .text('Authorized Signatory', signBoxX, lineY + 17, {
+          width: signBoxWidth,
+          align: 'center',
+        });
 
       // ----------------------------------------------------
       // FOOTER

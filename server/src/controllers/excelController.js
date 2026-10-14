@@ -6,6 +6,7 @@ import { ExcelImport } from '../models/ExcelImport.js';
 import { Notification } from '../models/Notification.js';
 import { calculateInvoiceTotals } from '../services/calculator.js';
 import { generateInvoiceHtml, generatePdfBuffer } from '../services/pdfService.js';
+import { generatePdfKitInvoice } from '../services/pdfKitService.js';
 import archiver from 'archiver';
 import fs from 'fs';
 import path from 'path';
@@ -377,8 +378,18 @@ export const downloadZippedInvoices = async (req, res, next) => {
 
     for (const inv of invoices) {
       try {
-        const html = await generateInvoiceHtml(inv, req.business, {});
-        const pdf = await generatePdfBuffer(html, { pageSize: 'A4' });
+        let pdf = null;
+        try {
+          const html = await generateInvoiceHtml(inv, req.business, {});
+          pdf = await generatePdfBuffer(html, { pageSize: 'A4' });
+        } catch (e) {
+          console.warn('[Batch PDF] Puppeteer unavailable, falling back to PDFKit:', e.message);
+        }
+
+        if (!pdf || pdf.length === 0) {
+          pdf = await generatePdfKitInvoice(inv, req.business, {});
+        }
+
         const name = `${inv.invoiceNumber}-${(inv.customerSnapshot?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
         archive.append(pdf, { name });
       } catch (e) {

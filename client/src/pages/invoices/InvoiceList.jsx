@@ -95,15 +95,37 @@ export const InvoiceList = () => {
     try {
       success('Preparing PDF download...');
       const response = await api.get(`/invoices/${invoice._id}/pdf`, { responseType: 'blob' });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
+      const blob = response.data;
+
+      // Check if server returned a JSON error disguised as a blob
+      if (blob.type && blob.type.includes('application/json')) {
+        const errorText = await blob.text();
+        try {
+          const errJson = JSON.parse(errorText);
+          showError(errJson.message || 'Failed to generate PDF');
+        } catch {
+          showError('Failed to generate PDF');
+        }
+        return;
+      }
+
+      const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(pdfBlob);
+      const customerName = (invoice.customerSnapshot?.name || 'Customer')
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 50);
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${invoice.invoiceNumber}-${invoice.customerSnapshot?.name || 'Customer'}.pdf`;
+      a.download = `${invoice.invoiceNumber}-${customerName}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      success('PDF downloaded successfully!');
     } catch (err) {
-      showError(err.message || 'Failed to generate PDF');
+      showError(err.response?.data?.message || err.message || 'Failed to generate PDF');
     }
   };
 

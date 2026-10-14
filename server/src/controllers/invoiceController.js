@@ -7,6 +7,7 @@ import { InvoiceTemplate } from '../models/InvoiceTemplate.js';
 import { Notification } from '../models/Notification.js';
 import { calculateInvoiceTotals } from '../services/calculator.js';
 import { generateInvoiceHtml, generatePdfBuffer } from '../services/pdfService.js';
+import { generatePdfKitInvoice } from '../services/pdfKitService.js';
 import { resolveTemplate } from './templateController.js';
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === String(id);
@@ -416,16 +417,28 @@ export const generatePdf = async (req, res, next) => {
       `[PDF] Generating PDF for invoice ${invoice.invoiceNumber} with template: "${template.name || 'Default'}" (Color: ${template.styles?.primaryColor || business.primaryColor || '#2563EB'})...`
     );
 
-    const html = await generateInvoiceHtml(invoice, business, template);
+    let pdfBuffer = null;
 
-    if (!html || html.length < 100) {
-      console.error('[PDF] Generated HTML is empty or too small:', html?.length);
-      return res.status(500).json({ success: false, message: 'Failed to generate invoice HTML template' });
+    // 1. Try Puppeteer first (when Chromium is available, e.g. local dev)
+    try {
+      const html = await generateInvoiceHtml(invoice, business, template);
+      if (html && html.length >= 100) {
+        pdfBuffer = await generatePdfBuffer(html, {
+          pageSize: template.pageSize || req.query.pageSize || 'A4',
+        });
+      }
+    } catch (puppeteerErr) {
+      console.warn(
+        '[PDF] Puppeteer browser unavailable (serverless / cloud environment), falling back to PDFKit engine:',
+        puppeteerErr.message
+      );
     }
 
-    const pdfBuffer = await generatePdfBuffer(html, {
-      pageSize: template.pageSize || req.query.pageSize || 'A4',
-    });
+    // 2. Serverless fallback: pure-JavaScript PDFKit engine (zero Chromium, fast, reliable on Vercel)
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      console.log(`[PDF] Generating PDF using serverless PDFKit engine for ${invoice.invoiceNumber}...`);
+      pdfBuffer = await generatePdfKitInvoice(invoice, business, template);
+    }
 
     if (!pdfBuffer || pdfBuffer.length === 0) {
       console.error('[PDF] Generated PDF buffer is empty');

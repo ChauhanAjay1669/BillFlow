@@ -6,6 +6,7 @@ import { useNotification } from '../../context/NotificationContext';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { Button } from '../../components/common/Button';
+import { resolveAssetUrl } from '../../api/assetUrl';
 import {
   Building2,
   Receipt,
@@ -307,7 +308,7 @@ export const OnboardingWizard = () => {
                     {formData.logo ? (
                       <div className="flex flex-col items-center">
                         <img
-                          src={formData.logo}
+                          src={resolveAssetUrl(formData.logo)}
                           alt="Company Logo"
                           className="h-16 object-contain mb-2"
                         />
@@ -345,7 +346,7 @@ export const OnboardingWizard = () => {
                     {formData.signature ? (
                       <div className="flex flex-col items-center">
                         <img
-                          src={formData.signature}
+                          src={resolveAssetUrl(formData.signature)}
                           alt="Signature"
                           className="h-16 object-contain mb-2"
                         />

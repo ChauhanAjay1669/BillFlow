@@ -37,6 +37,10 @@ const excelImportSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    rawRows: {
+      type: Array,
+      default: undefined,
+    },
     errors: [
       {
         row: Number,

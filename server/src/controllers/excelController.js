@@ -8,6 +8,8 @@ import { calculateInvoiceTotals } from '../services/calculator.js';
 import { generateInvoiceHtml, generatePdfBuffer } from '../services/pdfService.js';
 import archiver from 'archiver';
 import fs from 'fs';
+import path from 'path';
+import mongoose from 'mongoose';
 
 export const uploadAndPreview = async (req, res, next) => {
   try {
@@ -15,14 +17,31 @@ export const uploadAndPreview = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please upload an Excel or CSV file' });
     }
 
-    const fileBuffer = fs.readFileSync(req.file.path);
+    const fileBuffer =
+      req.file.buffer ||
+      (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+
+    if (!fileBuffer) {
+      return res.status(400).json({ success: false, message: 'Unable to read uploaded file content' });
+    }
+
     const parsed = parseExcelBuffer(fileBuffer);
+
+    // Staged session in MongoDB so serverless lambda instances across steps can reliably access rows
+    const stagedRecord = await ExcelImport.create({
+      businessId: req.business._id,
+      fileName: req.file.originalname,
+      fileType: path.extname(req.file.originalname) || '.xlsx',
+      totalRows: parsed.totalRows,
+      rawRows: parsed.allRows,
+      status: 'pending',
+    });
 
     res.json({
       success: true,
       fileName: req.file.originalname,
       fileSize: req.file.size,
-      filePath: req.file.path,
+      filePath: String(stagedRecord._id), // Pass MongoDB staged ID as session token
       columns: parsed.columns,
       totalRows: parsed.totalRows,
       previewRows: parsed.previewRows,
@@ -36,12 +55,29 @@ export const validateMapping = async (req, res, next) => {
   try {
     const { filePath, mapping } = req.body;
 
-    if (!filePath || !fs.existsSync(filePath)) {
-      return res.status(400).json({ success: false, message: 'Uploaded file not found or expired' });
+    let allRows = null;
+
+    // Check if filePath is an ExcelImport MongoDB ID
+    if (filePath && mongoose.Types.ObjectId.isValid(filePath)) {
+      const staged = await ExcelImport.findOne({ _id: filePath, businessId: req.business._id });
+      if (staged && Array.isArray(staged.rawRows) && staged.rawRows.length > 0) {
+        allRows = staged.rawRows;
+      }
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const { allRows } = parseExcelBuffer(fileBuffer);
+    // Fallback: Check if filePath is a local file path
+    if (!allRows && filePath && fs.existsSync(filePath)) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const parsed = parseExcelBuffer(fileBuffer);
+      allRows = parsed.allRows;
+    }
+
+    if (!allRows) {
+      return res.status(400).json({
+        success: false,
+        message: 'Uploaded file session not found or expired. Please upload your file again.',
+      });
+    }
 
     const { validRows, errors } = validateMappedRows(allRows, mapping);
 
@@ -61,12 +97,31 @@ export const processImportAndGenerate = async (req, res, next) => {
   try {
     const { filePath, mapping, fileName } = req.body;
 
-    if (!filePath || !fs.existsSync(filePath)) {
-      return res.status(400).json({ success: false, message: 'Uploaded file not found' });
+    let allRows = null;
+    let stagedRecord = null;
+
+    // Check if filePath is an ExcelImport MongoDB ID
+    if (filePath && mongoose.Types.ObjectId.isValid(filePath)) {
+      stagedRecord = await ExcelImport.findOne({ _id: filePath, businessId: req.business._id });
+      if (stagedRecord && Array.isArray(stagedRecord.rawRows) && stagedRecord.rawRows.length > 0) {
+        allRows = stagedRecord.rawRows;
+      }
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const { allRows } = parseExcelBuffer(fileBuffer);
+    // Fallback: Check if filePath is a local file path
+    if (!allRows && filePath && fs.existsSync(filePath)) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const parsed = parseExcelBuffer(fileBuffer);
+      allRows = parsed.allRows;
+    }
+
+    if (!allRows) {
+      return res.status(400).json({
+        success: false,
+        message: 'Uploaded file session not found or expired. Please upload your file again.',
+      });
+    }
+
     const { validRows, errors } = validateMappedRows(allRows, mapping);
 
     const business = req.business;
@@ -208,23 +263,40 @@ export const processImportAndGenerate = async (req, res, next) => {
       }
     }
 
-    // Save audit record
-    const auditRecord = await ExcelImport.create({
-      businessId: business._id,
-      fileName: fileName || 'Imported File',
-      fileType: 'spreadsheet',
-      mapping,
-      totalRows: allRows.length,
-      successfulRows: validRows.length,
-      failedRows: errors.length,
-      generatedInvoicesCount: generatedInvoices.length,
-      errors: errors.map((e) => ({
+    // Save audit record (or update staged record)
+    let auditRecord;
+    if (stagedRecord) {
+      stagedRecord.mapping = mapping;
+      stagedRecord.totalRows = allRows.length;
+      stagedRecord.successfulRows = validRows.length;
+      stagedRecord.failedRows = errors.length;
+      stagedRecord.generatedInvoicesCount = generatedInvoices.length;
+      stagedRecord.errors = errors.map((e) => ({
         row: e.row,
         message: e.messages.join('; '),
         data: e.data,
-      })),
-      status: 'completed',
-    });
+      }));
+      stagedRecord.status = 'completed';
+      stagedRecord.rawRows = undefined; // Free MongoDB storage
+      auditRecord = await stagedRecord.save();
+    } else {
+      auditRecord = await ExcelImport.create({
+        businessId: business._id,
+        fileName: fileName || 'Imported File',
+        fileType: 'spreadsheet',
+        mapping,
+        totalRows: allRows.length,
+        successfulRows: validRows.length,
+        failedRows: errors.length,
+        generatedInvoicesCount: generatedInvoices.length,
+        errors: errors.map((e) => ({
+          row: e.row,
+          message: e.messages.join('; '),
+          data: e.data,
+        })),
+        status: 'completed',
+      });
+    }
 
     // Notify user
     await Notification.create({

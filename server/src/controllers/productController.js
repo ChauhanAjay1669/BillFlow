@@ -4,7 +4,7 @@ import fs from 'fs';
 
 export const getProducts = async (req, res, next) => {
   try {
-    const { search = '', page = 1, limit = 50 } = req.query;
+    const { search = '', page = 1, limit = 100 } = req.query;
     const query = { businessId: req.business._id };
 
     if (search) {
@@ -16,18 +16,21 @@ export const getProducts = async (req, res, next) => {
       ];
     }
 
+    const pageLimit = Math.min(Math.max(1, Number(limit) || 100), 1000);
+    const pageNum = Math.max(1, Number(page) || 1);
+
     const total = await Product.countDocuments(query);
     const products = await Product.find(query)
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .skip((pageNum - 1) * pageLimit)
+      .limit(pageLimit);
 
     res.json({
       success: true,
       products,
       total,
-      page: Number(page),
-      pages: Math.ceil(total / limit) || 1,
+      page: pageNum,
+      pages: Math.ceil(total / pageLimit) || 1,
     });
   } catch (error) {
     next(error);
@@ -147,8 +150,15 @@ export const importProducts = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    tempFilePath = req.file.path;
-    const fileBuffer = fs.readFileSync(tempFilePath);
+    tempFilePath = req.file.path || null;
+    const fileBuffer =
+      req.file.buffer ||
+      (tempFilePath && fs.existsSync(tempFilePath) ? fs.readFileSync(tempFilePath) : null);
+
+    if (!fileBuffer) {
+      return res.status(400).json({ success: false, message: 'Could not read uploaded file content' });
+    }
+
     const { allRows, activeSheet } = parseExcelBuffer(fileBuffer);
 
     if (!allRows || allRows.length === 0) {

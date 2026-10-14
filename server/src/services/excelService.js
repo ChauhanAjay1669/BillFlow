@@ -40,6 +40,19 @@ export const parseExcelBuffer = (buffer) => {
       'code',
       'unit',
       'gst',
+      'customer',
+      'client',
+      'phone',
+      'email',
+      'company',
+      'contact',
+      'address',
+      'city',
+      'state',
+      'first',
+      'last',
+      'index',
+      'party',
     ];
 
     for (let i = 0; i < Math.min(rowsAsArrays.length, 10); i++) {

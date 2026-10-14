@@ -23,7 +23,9 @@ import {
 
 export const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
   const [search, setSearch] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -49,9 +51,10 @@ export const CustomerList = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/customers?search=${encodeURIComponent(search)}`);
+      const res = await api.get(`/customers?limit=1000&search=${encodeURIComponent(search)}`);
       if (res.data.success) {
         setCustomers(res.data.customers);
+        setTotalCount(res.data.total ?? res.data.customers.length);
       }
     } catch (err) {
       showError(err.message || 'Failed to fetch customers');
@@ -167,19 +170,25 @@ export const CustomerList = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input value so selecting the same file again triggers onChange
+    e.target.value = '';
+
     const data = new FormData();
     data.append('file', file);
 
     try {
+      setIsImporting(true);
       const res = await api.post('/customers/import', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.success) {
-        success(res.data.message);
+        success(res.data.message || 'Customers imported successfully');
         fetchCustomers();
       }
     } catch (err) {
-      showError(err.message || 'Failed to import customers');
+      showError(err.response?.data?.message || err.message || 'Failed to import customers');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -197,15 +206,24 @@ export const CustomerList = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <label className="cursor-pointer">
-            <span className="inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">
-              <Upload className="w-4 h-4 text-slate-500" /> Import Excel
+          <label className={`cursor-pointer ${isImporting ? 'opacity-70 pointer-events-none' : ''}`}>
+            <span className="inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-xs">
+              {isImporting ? (
+                <>
+                  <Upload className="w-4 h-4 text-blue-600 animate-spin" /> Importing Data...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 text-slate-500" /> Import Excel / CSV
+                </>
+              )}
             </span>
             <input
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls,.xlsm,.xlsb,.csv"
               className="hidden"
               onChange={handleImportExcel}
+              disabled={isImporting}
             />
           </label>
 
@@ -232,7 +250,7 @@ export const CustomerList = () => {
           />
         </div>
         <div className="text-xs font-semibold text-slate-500 self-end sm:self-auto">
-          Total: <span className="text-slate-900">{customers.length}</span> clients
+          Total: <span className="text-slate-900">{totalCount || customers.length}</span> clients
         </div>
       </div>
 

@@ -38,8 +38,22 @@ export const uploadAsset = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: 'Image size must be less than 5MB' });
+    }
+
     const { type } = req.body; // 'logo' | 'signature' | 'stamp' | 'qrCode' | 'upiQr' | 'bankQr'
-    const fileUrl = `/uploads/${req.file.filename}`;
+
+    // Serverless-safe asset storage: convert buffer to base64 data URI
+    let fileUrl = '';
+    if (req.file.buffer) {
+      const mime = req.file.mimetype || 'image/png';
+      fileUrl = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
+    } else if (req.file.filename) {
+      fileUrl = `/uploads/${req.file.filename}`;
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid file upload data' });
+    }
 
     const updateData = {};
     let label = 'Image';

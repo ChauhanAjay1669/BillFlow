@@ -14,29 +14,13 @@
     {
       "source": "/api/:path*",
       "destination": {
-        "service": "server",
-        "path": "/api/:path*"
+        "service": "server"
       }
     },
     {
-      "source": "/assets/:path*",
+      "source": "/(.*)",
       "destination": {
-        "service": "client",
-        "path": "/assets/:path*"
-      }
-    },
-    {
-      "source": "/:file(.*\\.[a-zA-Z0-9]+)",
-      "destination": {
-        "service": "client",
-        "path": "/:file"
-      }
-    },
-    {
-      "source": "/:path*",
-      "destination": {
-        "service": "client",
-        "path": "/index.html"
+        "service": "client"
       }
     }
   ]
